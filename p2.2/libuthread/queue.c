@@ -21,12 +21,13 @@ struct queue
 queue_t queue_create(void)
 {
 	/* TODO Phase 1 */
-	queue_t q = (struct queue *)malloc(sizeof(struct queue));
+	struct queue *q = (struct queue *)malloc(sizeof(struct queue));
 	if (q == NULL)
 	{
 		return NULL;
 	}
-	q->head = q->tail = q->head->_next = q->tail->_next = NULL;
+	q->head = NULL;
+	q->tail = NULL;
 	q->size = 0;
 	return q;
 }
@@ -44,57 +45,44 @@ int queue_destroy(queue_t queue)
 
 int queue_enqueue(queue_t queue, void *data)
 {
-	/* TODO Phase 1 */
 	if (queue == NULL || data == NULL)
-	{
 		return -1;
-	}
 
 	Node *new = (Node *)malloc(sizeof(Node));
 	if (new == NULL)
-	{
 		return -1;
-	}
+
 	new->data = data;
 	new->_next = NULL;
 
 	if (queue->size == 0)
-	{ // 1st edge case
-
-		queue->head = new;
+	{ // queue is empty
+		queue->head = queue->tail = new;
+	}
+	else
+	{ // queue has items
+		queue->tail->_next = new;
 		queue->tail = new;
-		queue->head->_next = queue->tail;
-	} // needs if statments.
-	// bigger than 0.
-	queue->tail->_next = new;
-	queue->tail = new;
-	queue->size++;
+	}
 
+	queue->size++;
 	return 0;
 }
 
 int queue_dequeue(queue_t queue, void **data) // double pointer data works as a return value. return by reference
 {
 	/* TODO Phase 1 */
-	if (queue == NULL || queue->size == 0 || data == NULL)
-	{
+	if (queue == NULL || data == NULL || queue->size == 0)
 		return -1;
-	}
 
-	*data = queue->head->data; // return by reference the value of data.
+	Node *temp = queue->head;
+	*data = temp->data;
 
-	if (queue->size == 1)
-	{
-		free(queue->head);
-		queue->head = queue->tail = queue->head->_next = queue->tail->_next = NULL;
-	}
+	queue->head = temp->_next;
+	if (queue->head == NULL) // queue is now empty
+		queue->tail = NULL;
 
-	// point to the new head and delete the oldest value.
-	Node *tem = queue->head;
-	queue->head = queue->head->_next;
-	tem->_next = NULL;
-	free(tem);
-
+	free(temp);
 	queue->size--;
 
 	return 0;
@@ -118,7 +106,7 @@ int queue_delete(queue_t queue, void *data)
 			{ // it is the head
 				if (queue->size == 1)
 				{
-					queue->head = queue->tail = queue->head->_next = queue->tail->_next = NULL; // extra for safety.
+					queue->head = queue->tail = NULL;
 				}
 				else
 				{
@@ -127,13 +115,12 @@ int queue_delete(queue_t queue, void *data)
 			}
 			else if (current == queue->tail)
 			{
-				queue->tail == prev;
+				queue->tail = prev;
 			}
 			else
 			{ // item is in the middle
 				prev->_next = current->_next;
 			}
-			free(current->data);
 			free(current);
 			queue->size--;
 			return 0;
