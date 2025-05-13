@@ -35,7 +35,7 @@ queue_t queue_create(void)
 int queue_destroy(queue_t queue)
 {
 	/* TODO Phase 1 */
-	if (queue == NULL || queue->size != 0)
+	if (queue == NULL || queue->size > 0)
 	{
 		return -1;
 	}
@@ -122,6 +122,7 @@ int queue_delete(queue_t queue, void *data)
 				prev->_next = current->_next;
 			}
 			free(current);
+			current = NULL;
 			queue->size--;
 			return 0;
 		}
@@ -143,8 +144,9 @@ int queue_iterate(queue_t queue, queue_func_t func)
 	Node *current = queue->head;
 	while (current != NULL)
 	{
+		Node *next = current->_next; // saving variable in cases it gets deleted.
 		func(queue, current->data);
-		current = current->_next;
+		current = next;
 	}
 	return 0;
 }

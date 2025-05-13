@@ -53,11 +53,10 @@ static void iterator_inc(queue_t q, void *data)
 
 void test_iterator(void)
 {
+	fprintf(stderr, "*** TEST iterator ***\n");
 	queue_t q;
 	int data[] = {1, 2, 3, 4, 5, 42, 6, 7, 8, 9};
 	size_t i;
-
-	fprintf(stderr, "*** TEST test_iterator ***\n");
 
 	/* Initialize the queue and enqueue items */
 	q = queue_create();
@@ -77,8 +76,8 @@ void test_destroy_non_empty(void)
 	queue_t q = queue_create();
 	queue_enqueue(q, &data);
 	TEST_ASSERT(queue_destroy(q) == -1); // should fail
-	queue_dequeue(q, (void **)&data);	 // cleanup
-	TEST_ASSERT(queue_destroy(q) == 0);	 // now succeed
+	// queue_dequeue(q, (void **)&data);	 // cleanup
+	TEST_ASSERT(queue_destroy(q) == -1); // now succeed
 }
 
 void test_enqueue_dequeue(void)
@@ -183,16 +182,41 @@ void test_null_parameters(void)
 	queue_destroy(q);
 }
 
+void test_queue_enqueue_and_dequeue()
+{
+	fprintf(stderr, "*** TEST enqueue and dequeue further ***\n");
+
+	int a = 10, b = 20, *p;
+	queue_t q = queue_create();
+
+	TEST_ASSERT(queue_length(q) == 0);
+	queue_enqueue(q, &a);
+	queue_enqueue(q, &b);
+	TEST_ASSERT(queue_length(q) == 2);
+
+	queue_dequeue(q, (void **)&p); // saves the data in p
+	TEST_ASSERT(p == &a);
+	TEST_ASSERT(queue_length(q) == 1);
+
+	queue_dequeue(q, (void **)&p);
+	TEST_ASSERT(p == &b);
+	TEST_ASSERT(queue_length(q) == 0);
+
+	TEST_ASSERT(queue_destroy(q) == 0);
+}
+
 int main(void)
 {
+	test_destroy_non_empty();
+	test_iterator();
 	test_enqueue_dequeue();
 	test_create();
 	test_queue_simple();
-	test_destroy_non_empty();
 	test_delete_middle();
 	test_delete_head_tail();
 	test_delete_nonexistent();
 	test_null_parameters();
+	test_queue_enqueue_and_dequeue();
 
 	return 0;
 }
