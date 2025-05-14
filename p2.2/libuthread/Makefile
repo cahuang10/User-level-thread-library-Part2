@@ -1,16 +1,15 @@
 # Target library
 lib := libuthread.a
 
-# Object files for Phase 1
-objs := queue.o
+objs := queue.o uthread.o context.o preempt.o
 
 # Compiler and flags
 CC := gcc
-CFLAGS := -Wall -Wextra -Werror -g -std=c99
+CFLAGS := -Wall -Wextra -Werror -g -O0 -std=c99
+
+.PHONY: all clean
 
 all: $(lib)
-
-## TODO: Phase 1
 
 $(lib): $(objs)
 	ar rcs $@ $^

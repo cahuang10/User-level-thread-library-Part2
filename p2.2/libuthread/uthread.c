@@ -40,16 +40,17 @@ void uthread_yield(void)
 {
 	/* TODO Phase 2 */
 
-	if (queue_enqueue(r_queue, curr_thread)) // true, then means it failed -1 == true
+	if (curr_thread != &main_thread) // We do not want to enqueue the idle thread as the name implies.
 	{
-		return -1;
+		if (queue_enqueue(r_queue, curr_thread) < 0)
+			return;
 	}
 	/* Setting up for context switch the next thread in line. */
 	struct uthread_tcb *old_thread = curr_thread;
 	struct uthread_tcb *new_thread; // get the next thread from the queue
-	if (queue_dequeue(r_queue, (void **)&new_thread))
+	if (queue_dequeue(r_queue, (void **)&new_thread) < 0)
 	{
-		return -1;
+		return;
 	}
 	if (old_thread->st != EXITED)
 	{
@@ -82,7 +83,7 @@ int uthread_create(uthread_func_t func, void *arg)
 		free(new_task);
 		return -1;
 	}
-	if (uthread_ctx_init(&new_task->context, new_task->stack, func, arg) || queue_enqueue(r_queue, new_task))
+	if (uthread_ctx_init(&new_task->context, new_task->stack, func, arg) < 0 || queue_enqueue(r_queue, new_task) < 0)
 	{
 		uthread_ctx_destroy_stack(new_task->stack);
 		free(new_task);
@@ -98,8 +99,15 @@ int uthread_run(bool preempt, uthread_func_t func, void *arg)
 	if (!preempt)
 	{
 		r_queue = queue_create();
+		if (!r_queue)
+		{
+			return -1;
+		}
 
-		uthread_create(func, arg); // Add the newly created TBC to the queue.
+		if (uthread_create(func, arg) < 0)
+		{
+			return -1;
+		} // Add the newly created TBC to the queue.
 
 		/* Setting the idle thread to be the first running thread*/
 		struct uthread_tcb *prev_thread = &main_thread;
@@ -112,6 +120,7 @@ int uthread_run(bool preempt, uthread_func_t func, void *arg)
 				free(curr_thread);
 				continue;
 			}
+			curr_thread->st = RUNNING;
 			uthread_ctx_switch(&prev_thread->context, &curr_thread->context);
 			prev_thread = curr_thread;
 		}
@@ -119,6 +128,8 @@ int uthread_run(bool preempt, uthread_func_t func, void *arg)
 		r_queue = NULL;
 		return 0;
 	}
+	// part 4
+	return 0;
 }
 
 void uthread_block(void)
@@ -126,7 +137,8 @@ void uthread_block(void)
 	/* TODO Phase 3 */
 }
 
-void uthread_unblock(struct uthread_tcb *uthread)
-{
-	/* TODO Phase 3 */
-}
+// void uthread_unblock(struct uthread_tcb *uthread)
+// {
+// 	/* TODO Phase 3 */
+
+// }
