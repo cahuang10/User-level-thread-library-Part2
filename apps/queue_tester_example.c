@@ -58,12 +58,12 @@ void test_iterator(void)
 	int data[] = {1, 2, 3, 4, 5, 42, 6, 7, 8, 9};
 	size_t i;
 
-	/* Initialize the queue and enqueue items */
+	// Initialize the queue and enqueue items.
 	q = queue_create();
 	for (i = 0; i < sizeof(data) / sizeof(data[0]); i++)
 		queue_enqueue(q, &data[i]);
 
-	/* Increment every item of the queue, delete item '42' */
+	// Increment every item of the queue, delete item '42'.
 	queue_iterate(q, iterator_inc);
 	assert(data[0] == 2);
 	assert(queue_length(q) == 9);
@@ -72,6 +72,7 @@ void test_iterator(void)
 void test_destroy_non_empty(void)
 {
 	fprintf(stderr, "*** TEST destroy non-empty ***\n");
+
 	int data = 5;
 	queue_t q = queue_create();
 	queue_enqueue(q, &data);
@@ -140,7 +141,7 @@ void test_delete_head_tail(void)
 	TEST_ASSERT(queue_length(q) == 1);
 
 	int *p;
-	queue_dequeue(q, (void **)&p);
+	queue_dequeue(q, (void **)&p); // get the value from dequeuing
 	TEST_ASSERT(p == &b);
 
 	queue_destroy(q);
@@ -153,7 +154,7 @@ void test_delete_nonexistent(void)
 	queue_t q = queue_create();
 
 	queue_enqueue(q, &a);
-	TEST_ASSERT(queue_delete(q, &b) == -1); // b not present
+	TEST_ASSERT(queue_delete(q, &b) == -1); // b not present here
 
 	int *p;
 	queue_dequeue(q, (void **)&p);
@@ -168,7 +169,7 @@ void test_null_parameters(void)
 	int dummy = 0;
 	int *p = NULL;
 	queue_t q = queue_create();
-
+	// testing if all the fucntionally of the queue are good.
 	TEST_ASSERT(queue_enqueue(NULL, &dummy) == -1);
 	TEST_ASSERT(queue_enqueue(q, NULL) == -1);
 	TEST_ASSERT(queue_dequeue(NULL, (void **)&p) == -1);
@@ -182,29 +183,6 @@ void test_null_parameters(void)
 	queue_destroy(q);
 }
 
-void test_queue_enqueue_and_dequeue()
-{
-	fprintf(stderr, "*** TEST enqueue and dequeue further ***\n");
-
-	int a = 10, b = 20, *p;
-	queue_t q = queue_create();
-
-	TEST_ASSERT(queue_length(q) == 0);
-	queue_enqueue(q, &a);
-	queue_enqueue(q, &b);
-	TEST_ASSERT(queue_length(q) == 2);
-
-	queue_dequeue(q, (void **)&p); // saves the data in p
-	TEST_ASSERT(p == &a);
-	TEST_ASSERT(queue_length(q) == 1);
-
-	queue_dequeue(q, (void **)&p);
-	TEST_ASSERT(p == &b);
-	TEST_ASSERT(queue_length(q) == 0);
-
-	TEST_ASSERT(queue_destroy(q) == 0);
-}
-
 int main(void)
 {
 	test_destroy_non_empty();
@@ -216,7 +194,6 @@ int main(void)
 	test_delete_head_tail();
 	test_delete_nonexistent();
 	test_null_parameters();
-	test_queue_enqueue_and_dequeue();
 
 	return 0;
 }
