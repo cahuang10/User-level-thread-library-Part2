@@ -10,7 +10,7 @@
 #include "uthread.h"
 #include "queue.h"
 
-typedef enum
+typedef enum // More intuitive representation of the different states.
 {
 	RUNNING,
 	READY,
@@ -20,150 +20,114 @@ typedef enum
 
 struct uthread_tcb
 {
-	state_type st;
-	void *stack;
-	uthread_ctx_t context;
+	state_type st;		   // state the thread is found.
+	void *stack;		   // designated stack.
+	uthread_ctx_t context; // save thread's context.
 };
 
-static struct uthread_tcb *curr_thread = NULL;
-static queue_t ready_queue = NULL;
+struct uthread_tcb main_thread;	 // this is the idle thread
+struct uthread_tcb *curr_thread; // keeps track of the current thread.
+queue_t r_queue;
 
 struct uthread_tcb *uthread_current(void)
 {
+	/* TODO Phase 2/3 */
 	return curr_thread;
 }
 
 void uthread_yield(void)
 {
+	/* TODO Phase 2 */
+
+	if (curr_thread != &main_thread) // We do not want to enqueue the idle thread as the name implies.
+	{
+		if (queue_enqueue(r_queue, curr_thread) < 0)
+			return;
+	}
+	/* Setting up for context switch the next thread in line. */
 	struct uthread_tcb *old_thread = curr_thread;
-	struct uthread_tcb *new_thread;
-
-	/* Put current thread back into ready queue if not exited */
-	if (curr_thread->st == RUNNING) {
-		curr_thread->st = READY;
-		queue_enqueue(ready_queue, curr_thread);
+	struct uthread_tcb *new_thread; // get the next thread from the queue
+	if (queue_dequeue(r_queue, (void **)&new_thread) < 0)
+	{
+		return;
 	}
-
-	/* Get next thread from ready queue */
-	if (queue_dequeue(ready_queue, (void **)&new_thread) == 0) {
-		curr_thread = new_thread;
-		curr_thread->st = RUNNING;
-		uthread_ctx_switch(&old_thread->context, &new_thread->context);
+	if (old_thread->st != EXITED)
+	{
+		old_thread->st = READY;
 	}
-	/* If no threads available, the current thread continues running */
+	curr_thread = new_thread;
+	new_thread->st = RUNNING;
+	uthread_ctx_switch(&old_thread->context, &new_thread->context);
 }
 
 void uthread_exit(void)
 {
+	/* TODO Phase 2 */
 	curr_thread->st = EXITED;
-	
-	/* Get next thread to run */
-	struct uthread_tcb *next_thread;
-	if (queue_dequeue(ready_queue, (void **)&next_thread) == 0) {
-		curr_thread = next_thread;
-		curr_thread->st = RUNNING;
-		/* This context switch will never return to the exited thread */
-		uthread_ctx_switch(&curr_thread->context, &next_thread->context);
-	}
-	/* If no more threads, this will return to main thread's scheduling loop */
-	curr_thread = NULL;
+	uthread_yield();
 }
 
 int uthread_create(uthread_func_t func, void *arg)
 {
-	struct uthread_tcb *new_thread = malloc(sizeof(struct uthread_tcb));
-	if (!new_thread)
-		return -1;
-
-	new_thread->st = READY;
-	new_thread->stack = uthread_ctx_alloc_stack();
-	if (!new_thread->stack) {
-		free(new_thread);
+	/* TODO Phase 2 */
+	struct uthread_tcb *new_task = (struct uthread_tcb *)malloc(sizeof(struct uthread_tcb));
+	if (new_task == NULL)
+	{
 		return -1;
 	}
-
-	if (uthread_ctx_init(&new_thread->context, new_thread->stack, func, arg) < 0) {
-		uthread_ctx_destroy_stack(new_thread->stack);
-		free(new_thread);
+	new_task->st = READY;
+	new_task->stack = uthread_ctx_alloc_stack();
+	if (new_task->stack == NULL)
+	{
+		free(new_task);
 		return -1;
 	}
-
-	queue_enqueue(ready_queue, new_thread);
+	if (uthread_ctx_init(&new_task->context, new_task->stack, func, arg) < 0 || queue_enqueue(r_queue, new_task) < 0)
+	{
+		uthread_ctx_destroy_stack(new_task->stack);
+		free(new_task);
+		return -1;
+	}
 	return 0;
 }
 
 int uthread_run(bool preempt, uthread_func_t func, void *arg)
 {
-	/* Create ready queue */
-	ready_queue = queue_create();
-	if (!ready_queue) {
-		return -1;
-	}
+	/* TODO Phase 2 */
 
-	/* Create initial thread */
-	if (uthread_create(func, arg) < 0) {
-		queue_destroy(ready_queue);
-		return -1;
-	}
+	if (!preempt)
+	{
+		r_queue = queue_create();
+		if (!r_queue)
+		{
+			return -1;
+		}
 
-	/* Start preemption if requested */
-	if (preempt) {
-		preempt_start(true);
-	}
+		if (uthread_create(func, arg) < 0)
+		{
+			return -1;
+		} // Add the newly created TBC to the queue.
 
-	/* Main scheduling loop - run until no more threads */
-	while (queue_length(ready_queue) > 0) {
-		struct uthread_tcb *thread;
-		
-		/* Get next thread */
-		if (queue_dequeue(ready_queue, (void **)&thread) == 0) {
-			/* Clean up any exited threads first */
-			while (thread->st == EXITED) {
-				uthread_ctx_destroy_stack(thread->stack);
-				free(thread);
-				
-				/* Get next thread */
-				if (queue_dequeue(ready_queue, (void **)&thread) != 0) {
-					/* No more threads */
-					goto cleanup;
-				}
-			}
-			
-			/* Run the thread */
-			curr_thread = thread;
-			curr_thread->st = RUNNING;
-			
-			/* Create a temporary context for the main thread */
-			uthread_ctx_t main_ctx;
-			uthread_ctx_switch(&main_ctx, &thread->context);
-			
-			/* When we return here, the thread has yielded or exited */
-			/* Clean up if thread exited */
-			if (curr_thread && curr_thread->st == EXITED) {
+		/* Setting the idle thread to be the first running thread*/
+		struct uthread_tcb *prev_thread = &main_thread;
+		while (queue_length(r_queue) > 0)
+		{
+			queue_dequeue(r_queue, (void **)&curr_thread);
+			if (curr_thread->st == EXITED) // This means the thread exited and needs to be deleted.
+			{
 				uthread_ctx_destroy_stack(curr_thread->stack);
 				free(curr_thread);
-				curr_thread = NULL;
+				continue;
 			}
+			curr_thread->st = RUNNING;
+			uthread_ctx_switch(&prev_thread->context, &curr_thread->context);
+			prev_thread = curr_thread;
 		}
+		queue_destroy(r_queue);
+		r_queue = NULL;
+		return 0;
 	}
-
-cleanup:
-	/* Stop preemption if it was started */
-	if (preempt) {
-		preempt_stop();
-	}
-
-	/* Clean up remaining threads */
-	struct uthread_tcb *thread;
-	while (queue_dequeue(ready_queue, (void **)&thread) == 0) {
-		uthread_ctx_destroy_stack(thread->stack);
-		free(thread);
-	}
-
-	queue_destroy(ready_queue);
-	ready_queue = NULL;
-	curr_thread = NULL;
-
+	// part 4
 	return 0;
 }
 
@@ -171,15 +135,16 @@ void uthread_block(void)
 {
 	/* Disable preemption while manipulating thread state */
 	preempt_disable();
-	
+
 	curr_thread->st = BLOCKED;
-	
+
 	/* Re-enable preemption */
 	preempt_enable();
-	
+
 	/* Get next thread to run */
 	struct uthread_tcb *next_thread;
-	if (queue_dequeue(ready_queue, (void **)&next_thread) == 0) {
+	if (queue_dequeue(r_queue, (void **)&next_thread) == 0)
+	{
 		struct uthread_tcb *old_thread = curr_thread;
 		curr_thread = next_thread;
 		curr_thread->st = RUNNING;
@@ -191,13 +156,14 @@ void uthread_unblock(struct uthread_tcb *uthread)
 {
 	/* Disable preemption while manipulating thread state */
 	preempt_disable();
-	
+
 	/* Put thread back into ready queue */
-	if (uthread && uthread->st == BLOCKED) {
+	if (uthread && uthread->st == BLOCKED)
+	{
 		uthread->st = READY;
-		queue_enqueue(ready_queue, uthread);
+		queue_enqueue(r_queue, uthread);
 	}
-	
+
 	/* Re-enable preemption */
 	preempt_enable();
 }
