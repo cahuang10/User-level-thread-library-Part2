@@ -5,7 +5,7 @@ objs := queue.o uthread.o context.o sem.o preempt.o
 
 # Compiler and flags
 CC := gcc
-CFLAGS := -Wall -Wextra -Werror -g -O0 -std=c99 -D_XOPEN_SOURCE=700 -Wno-deprecated-declarations
+CFLAGS := -Wall -Wextra -Werror -g -O0 -std=c99
 
 .PHONY: all clean
 
