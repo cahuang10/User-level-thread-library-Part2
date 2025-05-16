@@ -1,11 +1,11 @@
 # Target library
 lib := libuthread.a
 
-objs := queue.o uthread.o context.o preempt.o
+objs := queue.o uthread.o context.o sem.o preempt.o
 
 # Compiler and flags
 CC := gcc
-CFLAGS := -Wall -Wextra -Werror -g -O0 -std=c99
+CFLAGS := -Wall -Wextra -Werror -g -O0 -std=c99 -D_XOPEN_SOURCE=700 -Wno-deprecated-declarations
 
 .PHONY: all clean
 
@@ -18,4 +18,12 @@ $(lib): $(objs)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(objs) $(lib)
+	rm -f $(objs) $(lib) *.d
+
+# Dependency generation
+DEPS := $(objs:.o=.d)
+-include $(DEPS)
+
+# Pattern rule for generating dependencies
+%.d: %.c
+	@$(CC) $(CFLAGS) -MM -MT '$(@:.d=.o)' $< > $@
