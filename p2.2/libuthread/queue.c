@@ -116,6 +116,7 @@ int queue_delete(queue_t queue, void *data)
 			else if (current == queue->tail)
 			{
 				queue->tail = prev;
+				prev->_next = NULL;
 			}
 			else
 			{ // item is in the middle
