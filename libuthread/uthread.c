@@ -95,39 +95,55 @@ int uthread_run(bool preempt, uthread_func_t func, void *arg)
 {
 	/* TODO Phase 2 */
 
-	if (!preempt)
+	/* Initialize ready queue */
+	r_queue = queue_create();
+	if (!r_queue)
 	{
-		r_queue = queue_create();
-		if (!r_queue)
-		{
-			return -1;
-		}
-
-		if (uthread_create(func, arg) < 0)
-		{
-			return -1;
-		} // Add the newly created TBC to the queue.
-
-		/* Setting the idle thread to be the first running thread*/
-		struct uthread_tcb *prev_thread = &main_thread;
-		while (queue_length(r_queue) > 0)
-		{
-			queue_dequeue(r_queue, (void **)&curr_thread);
-			if (curr_thread->st == EXITED) // This means the thread exited and needs to be deleted.
-			{
-				uthread_ctx_destroy_stack(curr_thread->stack);
-				free(curr_thread);
-				continue;
-			}
-			curr_thread->st = RUNNING;
-			uthread_ctx_switch(&prev_thread->context, &curr_thread->context);
-			prev_thread = curr_thread;
-		}
-		queue_destroy(r_queue);
-		r_queue = NULL;
-		return 0;
+		return -1;
 	}
-	// part 4
+
+	/* Initialize main thread context */
+	main_thread.st = RUNNING;
+	main_thread.stack = NULL; 
+	curr_thread = &main_thread;
+
+	preempt_start(preempt);
+
+	/* Create the initial thread */
+	if (uthread_create(func, arg) < 0)
+	{
+		preempt_stop();
+		queue_destroy(r_queue);
+		return -1;
+	}
+
+	/* Main scheduling loop */
+	while (queue_length(r_queue) > 0)
+	{
+		/* Get next thread to run */
+		struct uthread_tcb *next_thread;
+		if (queue_dequeue(r_queue, (void **)&next_thread) < 0)
+			break;
+
+		/* Skip exited threads and clean them up */
+		if (next_thread->st == EXITED)
+		{
+			uthread_ctx_destroy_stack(next_thread->stack);
+			free(next_thread);
+			continue;
+		}
+
+		/* Switch to the next thread */
+		struct uthread_tcb *prev_thread = curr_thread;
+		curr_thread = next_thread;
+		curr_thread->st = RUNNING;
+		uthread_ctx_switch(&prev_thread->context, &next_thread->context);
+	}
+
+	preempt_stop();
+	queue_destroy(r_queue);
+	r_queue = NULL;
+
 	return 0;
 }
 
