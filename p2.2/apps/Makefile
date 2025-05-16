@@ -1,29 +1,79 @@
-# Target library
-lib := libuthread.a
+# Target programs
+programs := \
+	queue_tester_example.x \
+	uthread_hello.x \
+	uthread_yield.x
 
-objs := queue.o uthread.o context.o sem.o preempt.o
+# User-level thread library
+UTHREADLIB := libuthread
+UTHREADPATH := ../$(UTHREADLIB)
+libuthread := $(UTHREADPATH)/$(UTHREADLIB).a
 
-# Compiler and flags
-CC := gcc
-CFLAGS := -Wall -Wextra -Werror -g -O0 -std=c99 -D_XOPEN_SOURCE=700 -Wno-deprecated-declarations
+# Default rule
+all: $(programs)
 
-.PHONY: all clean
+# Avoid builtin rules and variables
+MAKEFLAGS += -rR
 
-all: $(lib)
+# Don't print the commands unless explicitly requested with `make V=1`
+ifneq ($(V),1)
+Q = @
+V = 0
+endif
 
-$(lib): $(objs)
-	ar rcs $@ $^
+# Current directory
+CUR_PWD := $(shell pwd)
 
+# Define compilation toolchain
+CC	= gcc
+
+# General gcc options
+CFLAGS	:= -Wall -Wextra -Werror -g -O0 -std=c99
+CFLAGS	+= -pipe
+## Debug flag
+ifneq ($(D),1)
+CFLAGS	+= -O2
+else
+CFLAGS	+= -g
+endif
+## Include path
+CFLAGS 	+= -I$(UTHREADPATH)
+## Dependency generation
+CFLAGS	+= -MMD
+
+# Linker options
+LDFLAGS := -L$(UTHREADPATH) -luthread
+
+# Application objects to compile
+objs := $(patsubst %.x,%.o,$(programs))
+
+# Include dependencies
+deps := $(patsubst %.o,%.d,$(objs))
+-include $(deps)
+
+# Rule for libuthread.a
+$(libuthread): FORCE
+	@echo "MAKE	$@"
+	$(Q)$(MAKE) V=$(V) D=$(D) -C $(UTHREADPATH)
+
+# Generic rule for linking final applications
+%.x: %.o $(libuthread)
+	@echo "LD	$@"
+	$(Q)$(CC) -o $@ $< $(LDFLAGS)
+
+# Generic rule for compiling objects
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	@echo "CC	$@"
+	$(Q)$(CC) $(CFLAGS) -c -o $@ $<
 
-clean:
-	rm -f $(objs) $(lib) *.d
+# Cleaning rule
+clean: FORCE
+	@echo "CLEAN	$(CUR_PWD)"
+	$(Q)$(MAKE) V=$(V) D=$(D) -C $(UTHREADPATH) clean
+	$(Q)rm -rf $(objs) $(deps) $(programs)
 
-# Dependency generation
-DEPS := $(objs:.o=.d)
--include $(DEPS)
+# Keep object files around
+.PRECIOUS: %.o
+.PHONY: FORCE
+FORCE:
 
-# Pattern rule for generating dependencies
-%.d: %.c
-	@$(CC) $(CFLAGS) -MM -MT '$(@:.d=.o)' $< > $@
