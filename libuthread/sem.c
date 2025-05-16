@@ -45,20 +45,26 @@ int sem_down(sem_t sem)
 	if (!sem)
 		return -1;
 
+	/* Disable preemption during critical section */
+	preempt_disable();
+
 	/* If resources available, take one */
 	if (sem->count > 0) {
 		sem->count--;
+		preempt_enable();
 		return 0;
 	}
 
 	/* No resources available, block current thread */
 	struct uthread_tcb *current = uthread_current();
 	queue_enqueue(sem->blocked_queue, current);
+	
+	/* Re-enable preemption before blocking */
+	preempt_enable();
+	
+	/* Block the thread */
 	uthread_block();
 
-	/* When we wake up, the resource should be available
-	 * But we need to handle the corner case where another thread
-	 * might have taken it before we got scheduled */
 	return 0;
 }
 
@@ -66,6 +72,9 @@ int sem_up(sem_t sem)
 {
 	if (!sem)
 		return -1;
+
+	/* Disable preemption during critical section */
+	preempt_disable();
 
 	/* If threads are waiting, wake up the first one */
 	if (queue_length(sem->blocked_queue) > 0) {
@@ -77,6 +86,9 @@ int sem_up(sem_t sem)
 		sem->count++;
 	}
 
+	preempt_enable();
 	return 0;
 }
+
+
 
