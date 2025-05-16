@@ -5,7 +5,8 @@
 #include "private.h"
 #include "sem.h"
 
-struct semaphore {
+struct semaphore
+{
 	int count;
 	queue_t blocked_queue;
 };
@@ -18,7 +19,8 @@ sem_t sem_create(size_t count)
 
 	sem->count = count;
 	sem->blocked_queue = queue_create();
-	if (!sem->blocked_queue) {
+	if (!sem->blocked_queue)
+	{
 		free(sem);
 		return NULL;
 	}
@@ -46,7 +48,8 @@ int sem_down(sem_t sem)
 		return -1;
 
 	/* If resources available, take one */
-	if (sem->count > 0) {
+	if (sem->count > 0)
+	{
 		sem->count--;
 		return 0;
 	}
@@ -68,15 +71,17 @@ int sem_up(sem_t sem)
 		return -1;
 
 	/* If threads are waiting, wake up the first one */
-	if (queue_length(sem->blocked_queue) > 0) {
+	if (queue_length(sem->blocked_queue) > 0)
+	{
 		struct uthread_tcb *blocked_thread;
 		queue_dequeue(sem->blocked_queue, (void **)&blocked_thread);
 		uthread_unblock(blocked_thread);
-	} else {
+	}
+	else
+	{
 		/* No threads waiting, just increment count */
 		sem->count++;
 	}
 
 	return 0;
 }
-
